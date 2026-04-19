@@ -1,0 +1,49 @@
+services:
+
+  shopwave_mongo:
+    image: mongo:7.0
+    container_name: shopwave_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  shopwave_qdrant:
+    image: qdrant/qdrant:v1.17.0
+    container_name: shopwave_qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  shopwave_app:
+    build: .
+    container_name: shopwave_app
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://shopwave_mongo:27017
+      - MONGO_DB=shopwave
+      - QDRANT_HOST=shopwave_qdrant
+      - QDRANT_PORT=6333
+      - CONCURRENCY_LIMIT=2
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      shopwave_mongo:
+        condition: service_healthy
+      shopwave_qdrant:
+        condition: service_started
+
+volumes:
+  mongodb_data:
+  qdrant_data:
